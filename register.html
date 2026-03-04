@@ -1,0 +1,24 @@
+<script src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+
+<script>
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbylcH8eA8F9r2X1hUz0ag1QylFHmYMFcLC6DDIDk4o4m3qcS1SnEw9OBV2JTWMsuNmJ/exec";
+
+async function registerFace(name) {
+  // 1. เปิดกล้อง
+  const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+  
+  // 2. จับใบหน้าและสร้าง descriptor
+  const detection = await faceapi
+    .detectSingleFace(videoEl)
+    .withFaceLandmarks()
+    .withFaceDescriptor();
+  
+  const descriptor = Array.from(detection.descriptor); // Float32Array → Array
+  
+  // 3. ส่งไป Apps Script
+  await fetch(APPS_SCRIPT_URL, {
+    method: "POST",
+    body: JSON.stringify({ action: "register", name, descriptor })
+  });
+}
+</script>
