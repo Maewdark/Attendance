@@ -1,30 +1,176 @@
-async function scanAndVerify(name) {
-  // 1. ดึง descriptor ทั้งหมดจาก Apps Script
-  const res = await fetch(`${APPS_SCRIPT_URL}?action=getUsers`);
-  const users = await res.json();
-  
-  // 2. สแกนหน้าปัจจุบัน
-  const detection = await faceapi
-    .detectSingleFace(videoEl)
-    .withFaceLandmarks()
-    .withFaceDescriptor();
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.js"></script>
+  <style>
+    body { font-family: 'Sarabun', sans-serif; text-align: center; padding: 20px; background-color: #f0f2f5; }
+    .video-container { position: relative; width: 100%; max-width: 600px; margin: 20px auto; border-radius: 12px; overflow: hidden; background: #000; min-height: 350px; }
+    video { width: 100%; height: auto; display: block; transform: scaleX(-1); }
+    #overlay-status { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.7); color: white; padding: 8px 20px; border-radius: 30px; z-index: 10; white-space: nowrap; }
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; }
+    .modal-content { background: white; padding: 30px; border-radius: 15px; width: 90%; max-width: 400px; text-align: center; }
+    .btn { border: none; padding: 12px 25px; border-radius: 8px; cursor: pointer; margin: 5px; width: 100px; color: white; font-size: 16px; }
+    .btn-confirm { background: #28a745; }
+    .btn-cancel { background: #dc3545; }
+    .user-name { font-size: 24px; color: #007bff; font-weight: bold; margin: 10px 0; }
+    .score-text { color:#666; font-size:14px; margin-bottom:20px; }
+  </style>
+</head>
+<body>
+  <h2>📷 สแกนเพื่อเข้างาน</h2>
+  <div id="main-status">⏳ กำลังเตรียมระบบ...</div>
 
-  // 3. เปรียบเทียบ
-  const labeledDescriptors = users.map(u =>
-    new faceapi.LabeledFaceDescriptors(u.name, [new Float32Array(u.descriptor)])
-  );
-  
-  const matcher = new faceapi.FaceMatcher(labeledDescriptors, 0.5); // threshold
-  const match = matcher.findBestMatch(detection.descriptor);
+  <div class="video-container">
+    <div id="overlay-status">รอโหลด...</div>
+    <video id="video" autoplay muted playsinline></video>
+  </div>
 
-  if (match.label === name && match.distance < 0.5) {
-    // 4. บันทึกการเข้าเรียน
-    await fetch(APPS_SCRIPT_URL, {
-      method: "POST",
-      body: JSON.stringify({ action: "checkIn", name })
+  <!-- เปลี่ยนลิงก์กลับเมนูเป็น Apps Script URL โดยตรง -->
+  <a href="https://script.google.com/macros/s/AKfycbylcH8eA8F9r2X1hUz0ag1QylFHmYMFcLC6DDIDk4o4m3qcS1SnEw9OBV2JTWMsuNmJ/exec" 
+     style="margin-top:20px; display:inline-block; text-decoration:none; color:#555;">← ยกเลิก / กลับเมนูหลัก</a>
+
+  <div id="confirmModal" class="modal-overlay">
+    <div class="modal-content">
+      <h3>ยืนยันตัวตน</h3>
+      <div class="user-name" id="modalName">...</div>
+      <div id="modalScore" class="score-text"></div>
+      <button class="btn btn-confirm" onclick="confirmAttendance()">✅ ใช่</button>
+      <button class="btn btn-cancel" onclick="cancelAttendance()">❌ ไม่ใช่</button>
+    </div>
+  </div>
+
+  <script>
+    // ---- เพิ่ม URL ของ Apps Script ----
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbylcH8eA8F9r2X1hUz0ag1QylFHmYMFcLC6DDIDk4o4m3qcS1SnEw9OBV2JTWMsuNmJ/exec";
+    const MAIN_MENU_URL = APPS_SCRIPT_URL; // กลับเมนูหลัก
+
+    const video = document.getElementById('video');
+    const mainStatus = document.getElementById('main-status');
+    const overlayStatus = document.getElementById('overlay-status');
+    const confirmModal = document.getElementById('confirmModal');
+
+    let knownFaces = [];
+    let scanInterval = null;
+    let currentMatch = null;
+    const MATCH_THRESHOLD = 0.45;
+
+    window.addEventListener('load', async () => {
+      try {
+        if(typeof faceapi === 'undefined') throw new Error("Library Load Failed");
+
+        mainStatus.innerText = "1/3 Loading AI...";
+
+        // ---- เปลี่ยนโหลดโมเดลจาก CDN → ./models ใน repo ----
+        await Promise.all([
+          faceapi.nets.ssdMobilenetv1.loadFromUri('./models'),
+          faceapi.nets.faceLandmark68Net.loadFromUri('./models'),
+          faceapi.nets.faceRecognitionNet.loadFromUri('./models')
+        ]);
+
+        loadFaceData();
+      } catch(e) { showError(e.message); }
     });
-    alert("เช็คชื่อสำเร็จ!");
-  } else {
-    alert("ไม่พบใบหน้าที่ตรงกัน");
-  }
-}
+
+    // ---- เปลี่ยนจาก google.script.run → fetch ----
+    async function loadFaceData() {
+      mainStatus.innerText = "2/3 Loading Database...";
+      try {
+        const res = await fetch(`${APPS_SCRIPT_URL}?action=getUsers`);
+        const data = await res.json();
+
+        if(!data || data.length === 0) return showError("ไม่พบข้อมูลพนักงาน");
+
+        knownFaces = data.map(u => ({
+          name: u.label,
+          descriptor: new Float32Array(u.descriptor)
+        }));
+
+        mainStatus.innerText = "3/3 Starting Camera...";
+        startVideo();
+      } catch(e) { showError("โหลดข้อมูลไม่สำเร็จ: " + e.message); }
+    }
+
+    function startVideo() {
+      navigator.mediaDevices.getUserMedia({ video: {} }).then(stream => {
+        video.srcObject = stream;
+        mainStatus.innerText = "✅ ระบบพร้อมใช้งาน";
+        mainStatus.style.color = "green";
+        startScanningLoop();
+      });
+    }
+
+    function startScanningLoop() {
+      if (scanInterval) clearInterval(scanInterval);
+      overlayStatus.innerText = "มองกล้องเพื่อสแกน";
+      overlayStatus.style.background = "rgba(0,0,0,0.7)";
+
+      scanInterval = setInterval(async () => {
+        if (video.paused || video.ended) return;
+
+        const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+
+        if (detection) {
+          const bestMatch = findBestMatch(detection.descriptor);
+
+          if (bestMatch.distance < MATCH_THRESHOLD) {
+            clearInterval(scanInterval);
+            showModal(bestMatch);
+          } else {
+            overlayStatus.innerText = `ไม่รู้จัก (${bestMatch.distance.toFixed(2)})`;
+            overlayStatus.style.background = "rgba(200, 0, 0, 0.7)";
+          }
+        }
+      }, 500);
+    }
+
+    function findBestMatch(queryDescriptor) {
+      let bestMatch = { name: 'unknown', distance: 1.0 };
+      knownFaces.forEach(user => {
+        const distance = faceapi.euclideanDistance(queryDescriptor, user.descriptor);
+        if (distance < bestMatch.distance) {
+          bestMatch = { name: user.name, distance: distance };
+        }
+      });
+      return bestMatch;
+    }
+
+    function showModal(match) {
+      currentMatch = match.name;
+      document.getElementById('modalName').innerText = match.name;
+      document.getElementById('modalScore').innerText = `ความเหมือน: ${((1 - match.distance) * 100).toFixed(0)}%`;
+      confirmModal.style.display = "flex";
+      mainStatus.innerText = "กรุณายืนยัน...";
+    }
+
+    // ---- เปลี่ยนจาก google.script.run → fetch ----
+    async function confirmAttendance() {
+      const btn = document.querySelector('.btn-confirm');
+      btn.disabled = true;
+      btn.innerText = "กำลังบันทึก...";
+
+      try {
+        await fetch(APPS_SCRIPT_URL, {
+          method: "POST",
+          body: JSON.stringify({ action: "checkIn", name: currentMatch })
+        });
+        alert("✅ บันทึกเวลาสำเร็จ!");
+        window.location.href = MAIN_MENU_URL;
+      } catch(e) {
+        alert("❌ บันทึกไม่สำเร็จ: " + e.message);
+        btn.disabled = false;
+        btn.innerText = "✅ ใช่";
+      }
+    }
+
+    function cancelAttendance() {
+      confirmModal.style.display = "none";
+      currentMatch = null;
+      mainStatus.innerText = "✅ ระบบพร้อมใช้งาน";
+      startScanningLoop();
+    }
+
+    function showError(msg) { mainStatus.innerHTML = `<span style='color:red'>❌ ${msg}</span>`; }
+  </script>
+</body>
+</html>
