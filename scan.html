@@ -198,17 +198,20 @@
     }
 
     async function initFaceSystem() {
-      mainStatus.innerText = "2/4 Loading AI...";
-      if(typeof faceapi === 'undefined') throw new Error("Library Load Failed");
-      
-      const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
-      await Promise.all([
-        faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-      ]);
-      
-      loadFaceData();
+      try {
+        if(typeof faceapi === 'undefined') throw new Error("Library Load Failed");
+
+        mainStatus.innerText = "2/4 Loading AI...";
+
+        // ---- เปลี่ยนโหลดโมเดลจาก CDN → ./models ใน repo ----
+        await Promise.all([
+          faceapi.nets.ssdMobilenetv1.loadFromUri('./models'),
+          faceapi.nets.faceLandmark68Net.loadFromUri('./models'),
+          faceapi.nets.faceRecognitionNet.loadFromUri('./models')
+        ]);
+
+        loadFaceData();
+      } catch(e) { showError(e.message); }
     }
 
     function loadFaceData() {
