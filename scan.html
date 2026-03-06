@@ -311,40 +311,48 @@
 
     // ─── Confirm Attendance ────────────────────────────────────────
     async function confirmAttendance() {
-      const btn = document.querySelector('.btn-confirm');
-      btn.disabled = true;
-      btn.innerText = "กำลังบันทึก...";
+  const btn = document.querySelector('.btn-confirm');
+  btn.disabled = true;
+  btn.innerText = "กำลังบันทึก...";
 
-      try {
-        // ✅ เปลี่ยนจาก google.script.run → fetch() POST
-        const res = await fetch(APPS_SCRIPT_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'checkIn',
-            name: currentMatch,
-            lat: currentLat,
-            lng: currentLng
-          })
-        });
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      redirect: 'follow',                          // ✅ แก้จุดที่ 2
+      body: JSON.stringify({                        // ✅ แก้จุดที่ 1
+        action: 'checkIn',
+        name: currentMatch,
+        lat: currentLat,
+        lng: currentLng
+      })
+    });
 
-        const result = await res.json();
-
-        if (result.status === 'ok') {
-          alert("✅ บันทึกเวลาสำเร็จ!");
-          window.location.href = APPS_SCRIPT_URL;
-        } else {
-          alert("❌ เกิดข้อผิดพลาด: " + result.message);
-          btn.disabled = false;
-          btn.innerText = "ยืนยัน";
-        }
-      } catch(err) {
-        alert("❌ ไม่สามารถบันทึกได้: " + err.message);
-        btn.disabled = false;
-        btn.innerText = "ยืนยัน";
-      }
+    const text = await res.text();                 // ✅ แก้จุดที่ 3
+    let result;
+    try {
+      result = JSON.parse(text);
+    } catch {
+      alert("❌ Server error: " + text.substring(0, 150));
+      btn.disabled = false;
+      btn.innerText = "ยืนยัน";
+      return;
     }
 
+    if (result.status === 'ok') {
+      alert("✅ บันทึกเวลาสำเร็จ!");
+      window.location.href = APPS_SCRIPT_URL;
+    } else {
+      alert("❌ เกิดข้อผิดพลาด: " + result.message);
+      btn.disabled = false;
+      btn.innerText = "ยืนยัน";
+    }
+
+  } catch(err) {
+    alert("❌ ไม่สามารถบันทึกได้: " + err.message);
+    btn.disabled = false;
+    btn.innerText = "ยืนยัน";
+  }
+}
     // ─── Cancel / Reset ────────────────────────────────────────────
     function cancelAttendance() {
       confirmModal.style.display = "none";
