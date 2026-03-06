@@ -15,7 +15,6 @@
     
     .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; }
     
-    /* ปรับแต่ง Modal ให้สวยงามและรองรับปุ่มใหญ่ */
     .modal-content { 
       background: white; 
       padding: 30px; 
@@ -29,11 +28,9 @@
       align-items: center;
     }
     
-    /* สไตล์ปุ่มแบบใหม่ เต็มความกว้าง */
     .btn { border: none; border-radius: 12px; cursor: pointer; margin: 5px 0; width: 100%; color: white; font-family: 'Sarabun', sans-serif; transition: transform 0.1s; }
     .btn:active { transform: scale(0.98); }
 
-    /* ปุ่มยืนยัน (ใหญ่และอยู่บน) */
     .btn-confirm { 
       background: linear-gradient(135deg, #28a745 0%, #218838 100%); 
       padding: 18px; 
@@ -43,17 +40,14 @@
       margin-bottom: 10px;
     } 
     
-    /* ปุ่มยกเลิก (เล็กกว่าและอยู่ล่าง) */
     .btn-cancel { 
-      background: #dc3545; 
-      padding: 12px; 
-      font-size: 16px; 
       background: #f8d7da;
       color: #721c24;
+      padding: 12px; 
+      font-size: 16px; 
       font-weight: 600;
     }
     
-    /* ปุ่มเริ่มสแกนหน้าหลัก */
     .btn-start {
       background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
       padding: 15px 30px;
@@ -65,7 +59,7 @@
       cursor: pointer;
       box-shadow: 0 4px 15px rgba(0, 123, 255, 0.4);
       margin: 20px auto;
-      display: none; /* ซ่อนไว้ก่อน */
+      display: none;
       width: auto;
       min-width: 200px;
     }
@@ -74,7 +68,6 @@
     .user-name { font-size: 28px; color: #007bff; font-weight: bold; margin: 5px 0; }
     .score-text { color:#888; font-size:14px; margin-bottom:20px; }
     
-    /* สไตล์สำหรับแสดงเวลา */
     .time-badge {
       background-color: #e9ecef;
       color: #333;
@@ -98,7 +91,6 @@
     ⚠️ คุณอยู่นอกพื้นที่ที่กำหนด!<br>กรุณาเข้าใกล้จุดเช็คอินแล้วรีเฟรชหน้าจอ
   </div>
 
-  <!-- ปุ่มกดเพื่อเริ่มสแกน -->
   <button id="btnStart" class="btn-start" onclick="startVideo()">📷 แตะเพื่อเริ่มสแกน</button>
 
   <div class="video-container">
@@ -106,25 +98,15 @@
     <video id="video" autoplay muted playsinline></video>
   </div>
   
-  <a href="https://script.google.com/macros/s/AKfycbylcH8eA8F9r2X1hUz0ag1QylFHmYMFcLC6DDIDk4o4m3qcS1SnEw9OBV2JTWMsuNmJ/exec" style="margin-top:20px; display:inline-block; text-decoration:none; color:#555;">← ยกเลิก / กลับเมนูหลัก</a>
+  <a href="YOUR_APPS_SCRIPT_URL_HERE" style="margin-top:20px; display:inline-block; text-decoration:none; color:#555;">← ยกเลิก / กลับเมนูหลัก</a>
 
   <div id="confirmModal" class="modal-overlay">
     <div class="modal-content">
       <h3 style="margin:0; color:#555;">ยืนยันตัวตน</h3>
-      
-      <!-- ชื่อพนักงาน -->
       <div class="user-name" id="modalName">...</div>
-      
-      <!-- แสดงเวลา -->
       <div id="modalTime" class="time-badge">00:00</div>
-      
-      <!-- คะแนนความเหมือน -->
       <div id="modalScore" class="score-text"></div>
-      
-      <!-- ปุ่มยืนยัน (ใหญ่) -->
       <button class="btn btn-confirm" onclick="confirmAttendance()">ยืนยัน</button>
-      
-      <!-- ปุ่มยกเลิก (เล็ก) -->
       <button class="btn btn-cancel" onclick="cancelAttendance()">ไม่ใช่</button>
     </div>
   </div>
@@ -137,25 +119,29 @@
     const gpsStatus = document.getElementById('gps-status');
     const gpsAlertBox = document.getElementById('gps-alert-box');
     const btnStart = document.getElementById('btnStart');
-    
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbylcH8eA8F9r2X1hUz0ag1QylFHmYMFcLC6DDIDk4o4m3qcS1SnEw9OBV2JTWMsuNmJ/exec";
-    const MAIN_MENU_URL = APPS_SCRIPT_URL;
+
+    // ✅ เปลี่ยนเป็น URL ของ Apps Script Web App
+    const APPS_SCRIPT_URL = "YOUR_APPS_SCRIPT_URL_HERE";
+
     let knownFaces = [];
     let scanInterval = null;
     let currentMatch = null;
-    const MATCH_THRESHOLD = 0.45; 
+    const MATCH_THRESHOLD = 0.45;
 
-    // ตัวแปรเก็บพิกัดปัจจุบัน
     let currentLat = null;
     let currentLng = null;
 
+    // ─── Entry Point ───────────────────────────────────────────────
     window.addEventListener('load', async () => {
       try {
         mainStatus.innerText = "1/4 Checking GPS...";
         await checkGPS();
-      } catch(e) { showError(e.message); }
+      } catch(e) {
+        showError(e.message);
+      }
     });
 
+    // ─── GPS ───────────────────────────────────────────────────────
     function checkGPS() {
       return new Promise((resolve, reject) => {
         if (!navigator.geolocation) {
@@ -167,17 +153,21 @@
           async (position) => {
             currentLat = position.coords.latitude;
             currentLng = position.coords.longitude;
-            
-            google.script.run.withSuccessHandler(config => {
+
+            try {
+              // ✅ เปลี่ยนจาก google.script.run → fetch()
+              const res = await fetch(`${APPS_SCRIPT_URL}?action=getConfig`);
+              const config = await res.json();
+
               if (!config.lat || !config.lng || config.radius == 0) {
-                 gpsStatus.innerText = "📍 GPS: ไม่จำกัดพื้นที่";
-                 resolve();
-                 initFaceSystem(); 
-                 return;
+                gpsStatus.innerText = "📍 GPS: ไม่จำกัดพื้นที่";
+                resolve();
+                initFaceSystem();
+                return;
               }
 
               const dist = getDistanceFromLatLonInKm(currentLat, currentLng, config.lat, config.lng);
-              
+
               if (dist <= config.radius) {
                 gpsStatus.innerText = `📍 GPS: OK (ห่างเป้าหมาย ${dist.toFixed(3)} km)`;
                 gpsStatus.style.color = "green";
@@ -190,20 +180,23 @@
                 mainStatus.innerText = "⛔ ไม่อนุญาตให้สแกน";
                 overlayStatus.innerText = "Out of Range";
               }
-            }).getConfig();
+            } catch(err) {
+              reject(new Error("โหลด Config ไม่สำเร็จ: " + err.message));
+            }
           },
-          (err) => reject(new Error("กรุณาเปิด GPS (Location Service)"))
+          (err) => reject(new Error("กรุณาเปิด GPS (Location Service)")),
+          { timeout: 10000, maximumAge: 60000 }
         );
       });
     }
 
+    // ─── Load Face-API Models ──────────────────────────────────────
     async function initFaceSystem() {
       try {
-        if(typeof faceapi === 'undefined') throw new Error("Library Load Failed");
+        if (typeof faceapi === 'undefined') throw new Error("Library Load Failed");
 
         mainStatus.innerText = "2/4 Loading AI...";
 
-        // ---- เปลี่ยนโหลดโมเดลจาก CDN → ./models ใน repo ----
         await Promise.all([
           faceapi.nets.ssdMobilenetv1.loadFromUri('./models'),
           faceapi.nets.faceLandmark68Net.loadFromUri('./models'),
@@ -211,60 +204,71 @@
         ]);
 
         loadFaceData();
-      } catch(e) { showError(e.message); }
+      } catch(e) {
+        showError(e.message);
+      }
     }
 
-    function loadFaceData() {
+    // ─── Load Face Database ────────────────────────────────────────
+    async function loadFaceData() {
       mainStatus.innerText = "3/4 Loading Database...";
-      google.script.run.withSuccessHandler(data => {
-        if(!data || data.length === 0) return showError("ไม่พบข้อมูลพนักงาน");
-        
+
+      try {
+        // ✅ เปลี่ยนจาก google.script.run → fetch()
+        const res = await fetch(`${APPS_SCRIPT_URL}?action=getUsers`);
+        const data = await res.json();
+
+        if (!data || data.length === 0) {
+          showError("ไม่พบข้อมูลพนักงาน");
+          return;
+        }
+
         knownFaces = data.map(u => ({
           name: u.label,
           descriptor: new Float32Array(u.descriptor)
         }));
-        
-        // --- เปลี่ยนแปลงตรงนี้: ไม่เรียก startVideo() ทันที ---
+
         mainStatus.innerText = "✅ ระบบพร้อมใช้งาน";
         mainStatus.style.color = "green";
-        
-        // แสดงปุ่มเริ่มสแกน
         btnStart.style.display = "inline-block";
-        
-      }).getKnownFaces();
+
+      } catch(err) {
+        showError("โหลดข้อมูลพนักงานไม่สำเร็จ: " + err.message);
+      }
     }
 
-    // ฟังก์ชันนี้จะทำงานเมื่อกดปุ่มเริ่ม
+    // ─── Start Camera ──────────────────────────────────────────────
     function startVideo() {
-      btnStart.style.display = "none"; // ซ่อนปุ่ม
+      btnStart.style.display = "none";
       mainStatus.innerText = "กำลังเปิดกล้อง...";
       mainStatus.style.color = "black";
 
       navigator.mediaDevices.getUserMedia({ video: {} }).then(stream => {
         video.srcObject = stream;
-        video.classList.add('active'); 
+        video.classList.add('active');
         mainStatus.innerText = "✅ กำลังสแกน...";
         mainStatus.style.color = "green";
         startScanningLoop();
       }).catch(err => {
-         showError("ไม่สามารถเปิดกล้องได้: " + err.message);
-         btnStart.style.display = "inline-block"; // แสดงปุ่มใหม่ถ้าพลาด
+        showError("ไม่สามารถเปิดกล้องได้: " + err.message);
+        btnStart.style.display = "inline-block";
       });
     }
 
+    // ─── Scanning Loop ─────────────────────────────────────────────
     function startScanningLoop() {
       if (scanInterval) clearInterval(scanInterval);
       overlayStatus.innerText = "มองกล้องเพื่อสแกน";
       overlayStatus.style.background = "rgba(0,0,0,0.7)";
-      
+
       scanInterval = setInterval(async () => {
         if (video.paused || video.ended) return;
-        
+
         const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-        
+
         if (detection) {
           const bestMatch = findBestMatch(detection.descriptor);
-          
+
           if (bestMatch.distance < MATCH_THRESHOLD) {
             clearInterval(scanInterval);
             showModal(bestMatch);
@@ -276,6 +280,7 @@
       }, 500);
     }
 
+    // ─── Face Matching ─────────────────────────────────────────────
     function findBestMatch(queryDescriptor) {
       let bestMatch = { name: 'unknown', distance: 1.0 };
       knownFaces.forEach(user => {
@@ -287,77 +292,97 @@
       return bestMatch;
     }
 
+    // ─── Show Confirm Modal ────────────────────────────────────────
     function showModal(match) {
       currentMatch = match.name;
-      
-      // แสดงชื่อ
+
       document.getElementById('modalName').innerText = match.name;
-      
-      // แสดงเวลาปัจจุบัน
+
       const now = new Date();
       const timeStr = now.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
       document.getElementById('modalTime').innerText = `เวลาเข้างาน: ${timeStr} น.`;
 
-      // แสดงคะแนนความเหมือน
-      document.getElementById('modalScore').innerText = `ความเหมือน: ${(1-match.distance).toFixed(2)*100}%`;
-      
+      const similarity = ((1 - match.distance) * 100).toFixed(0);
+      document.getElementById('modalScore').innerText = `ความเหมือน: ${similarity}%`;
+
       confirmModal.style.display = "flex";
       mainStatus.innerText = "กรุณายืนยัน...";
     }
 
-    function confirmAttendance() {
+    // ─── Confirm Attendance ────────────────────────────────────────
+    async function confirmAttendance() {
       const btn = document.querySelector('.btn-confirm');
       btn.disabled = true;
       btn.innerText = "กำลังบันทึก...";
-      
-      google.script.run.withSuccessHandler(() => {
-        alert("✅ บันทึกเวลาสำเร็จ!");
-        window.top.location.href = MAIN_MENU_URL;
-      }).logAttendance(currentMatch, currentLat, currentLng);
+
+      try {
+        // ✅ เปลี่ยนจาก google.script.run → fetch() POST
+        const res = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'checkIn',
+            name: currentMatch,
+            lat: currentLat,
+            lng: currentLng
+          })
+        });
+
+        const result = await res.json();
+
+        if (result.status === 'ok') {
+          alert("✅ บันทึกเวลาสำเร็จ!");
+          window.location.href = APPS_SCRIPT_URL;
+        } else {
+          alert("❌ เกิดข้อผิดพลาด: " + result.message);
+          btn.disabled = false;
+          btn.innerText = "ยืนยัน";
+        }
+      } catch(err) {
+        alert("❌ ไม่สามารถบันทึกได้: " + err.message);
+        btn.disabled = false;
+        btn.innerText = "ยืนยัน";
+      }
     }
 
+    // ─── Cancel / Reset ────────────────────────────────────────────
     function cancelAttendance() {
-      // 1. ปิด Modal
       confirmModal.style.display = "none";
       currentMatch = null;
-      
-      // 2. หยุด Loop Scan
+
       if (scanInterval) clearInterval(scanInterval);
 
-      // 3. ปิดกล้อง (Stop Camera Stream)
       if (video.srcObject) {
-        const stream = video.srcObject;
-        const tracks = stream.getTracks();
-        tracks.forEach(track => track.stop());
+        video.srcObject.getTracks().forEach(track => track.stop());
         video.srcObject = null;
       }
-      video.classList.remove('active'); // ซ่อนวิดีโอ (Fade out)
+      video.classList.remove('active');
 
-      // 4. รีเซ็ตข้อความ UI
       mainStatus.innerText = "✅ ระบบพร้อมใช้งาน";
       mainStatus.style.color = "green";
       overlayStatus.innerText = "รอโหลด...";
-      
-      // 5. แสดงปุ่มเริ่มสแกนใหม่
+
       btnStart.style.display = "inline-block";
     }
 
-    function showError(msg) { mainStatus.innerHTML = `<span style='color:red'>❌ ${msg}</span>`; }
+    // ─── Helpers ───────────────────────────────────────────────────
+    function showError(msg) {
+      mainStatus.innerHTML = `<span style='color:red'>❌ ${msg}</span>`;
+    }
 
     function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
-      var R = 6371; 
-      var dLat = deg2rad(lat2-lat1); 
-      var dLon = deg2rad(lon2-lon1); 
-      var a = 
+      const R = 6371;
+      const dLat = deg2rad(lat2 - lat1);
+      const dLon = deg2rad(lon2 - lon1);
+      const a =
         Math.sin(dLat/2) * Math.sin(dLat/2) +
-        Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2); 
-      var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-      var d = R * c; 
-      return d;
+        Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
     }
 
     function deg2rad(deg) {
-      return deg * (Math.PI/180)
+      return deg * (Math.PI / 180);
     }
   </script>
 </body>
